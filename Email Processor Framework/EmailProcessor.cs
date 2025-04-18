@@ -29,6 +29,7 @@ using static System.Net.WebRequestMethods;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ListView;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using System.Reflection;
+using static Email_Processor_Framework.EmailProcessor;
 //using System.IO.Compression.FileSystem;
 
 namespace Email_Processor_Framework
@@ -187,7 +188,7 @@ namespace Email_Processor_Framework
                     insertCmd.Parameters.AddWithValue("@Surname", data.ContainsKey("surname") ? data["surname"] : DBNull.Value.ToString());
                     //insertCmd.Parameters.AddWithValue("@DOB", data.ContainsKey("dob") ? Convert.ToDateTime(data["dob"]) : DBNull.Value);
 
-                    insertCmd.Parameters.AddWithValue("@DOB",  data.ContainsKey("dob") ? (object)Convert.ToDateTime(data["dob"]) : DBNull.Value);
+                    insertCmd.Parameters.AddWithValue("@DOB", data.ContainsKey("dob") ? (object)Convert.ToDateTime(data["dob"]) : DBNull.Value);
 
                     insertCmd.Parameters.AddWithValue("@Email", data.ContainsKey("email") ? data["email"] : DBNull.Value.ToString());
                     insertCmd.Parameters.AddWithValue("@Tel", data.ContainsKey("tel") ? data["tel"] : DBNull.Value.ToString());
@@ -945,69 +946,245 @@ namespace Email_Processor_Framework
 
         static string GetPDFFileName(string feFileName, Microsoft.Graph.Message item, ref PDFType PT)
         {
-            string fePDFFileName = "";
-            string fePDFFileName1 = "";
-            //System.Windows.Forms.Application.DoEvents();
+            LogMessage($"Starting PDF search for FDF: {feFileName}", item, TraceEventType.Information);
 
-            var r = new Regex(@"\d{1,2}\-\d{1,2}\-\d{4}", RegexOptions.IgnoreCase);
-            var m = r.Match(feFileName);
-            if (m.Success)
+            // --- Level 1: Exact Match Attempt ---
+            LogMessage("Attempting Level 1: Exact Match", item, TraceEventType.Verbose);
+            string cleanedFdfBase = CleanFdfBaseName(feFileName);
+            if (!string.IsNullOrEmpty(cleanedFdfBase))
             {
-                int i;
-                if (feFileName.IndexOf("]") > 0)
+                string potentialExactPdfName = cleanedFdfBase + ".pdf";
+                string potentialExactPdfPath = Path.Combine(TIMESHEETS_PDF_PATH, potentialExactPdfName);
+
+                LogMessage($"Checking for exact PDF match: {potentialExactPdfPath}", item, TraceEventType.Verbose);
+                if (System.IO.File.Exists(potentialExactPdfPath))
                 {
-                    i = m.Index + 11;
-                    fePDFFileName = Strings.Left(feFileName, i) + ".pdf";
-                    LogMessage("feFileName.IndexOf(\"]\") > 0: feFileName: " + feFileName + ", fePDFFileName: " + fePDFFileName, item, TraceEventType.Information);
+                    LogMessage($"Level 1 Success: Found exact match PDF: {potentialExactPdfName}", item, TraceEventType.Information);
+                    PT = PDFType.Timesheet; // Assuming type based on path
+                    return potentialExactPdfName;
                 }
                 else
                 {
-                    string DateSt = Mid(feFileName, m.Index, 10);
-                    i = m.Index + 10;
-                    fePDFFileName = Strings.Left(feFileName, i) + ".pdf";
-                    fePDFFileName1 = fePDFFileName.Replace(DateSt, "[" + DateSt + "]");
-                    LogMessage("feFileName.IndexOf(\"]\") <= 0: feFileName: " + feFileName + ", fePDFFileName: " + fePDFFileName, item, TraceEventType.Information);
-                }
-
-                LogMessage("fePDFFileNamet: " + fePDFFileName + ", fePDFFileName1: " + fePDFFileName1, item, TraceEventType.Information);
-
-                if (System.IO.File.Exists(Path.Combine(TIMESHEETS_PDF_PATH, fePDFFileName)))
-                {
-                    LogMessage("GetPDFFileName: Exists: " + fePDFFileName, item, TraceEventType.Information);
-                    PT = PDFType.Timesheet;
-                    return fePDFFileName;
-                }
-                else if (System.IO.File.Exists(Path.Combine(TIMESHEETS_PDF_PATH, fePDFFileName1)))
-                {
-                    LogMessage("GetPDFFileName: Exists: " + fePDFFileName1, item, TraceEventType.Information);
-                    PT = PDFType.Timesheet;
-                    return fePDFFileName1;
-                }
-                else
-                {
-                    return null;
+                    LogMessage($"Level 1 Failed: Exact match not found for '{potentialExactPdfName}'", item, TraceEventType.Verbose);
                 }
             }
             else
             {
-                // No date found
-                LogMessage("GetPDFFileName: No match, feFileName: " + feFileName, item, TraceEventType.Information);
-                return null;
+                LogMessage("Level 1 Skipped: Could not clean FDF filename.", item, TraceEventType.Warning);
             }
 
-            // If feFileName.IndexOf("]") > 0 Then
-            // fePDFFileName = LeftStr(feFileName, feFileName.IndexOf("]")).ToLower().Replace("_data", "") & ".pdf"
-            // LogMessage("feFileName.IndexOf(""]"") > 0: feFileName: " & feFileName & ", fePDFFileName: " & fePDFFileName, Message, TraceEventType.Information)
-            // Else
-            // fePDFFileName = feFileName.ToLower().Replace(".fdf", ".pdf").Replace("_data", "")
-            // LogMessage("feFileName.IndexOf(""]"") <= 0: feFileName: " & feFileName & ", fePDFFileName: " & fePDFFileName, Message, TraceEventType.Information)
-            // Dim DateSt As String = Microsoft.VisualBasic.Right(fePDFFileName, 14)
-            // fePDFFileName1 = fePDFFileName.Replace(DateSt, "[" & DateSt)
-            // fePDFFileName1 = fePDFFileName1.Replace(".pdf", "].pdf")
-            // LogMessage("fePDFFileNamet: " & fePDFFileName & ", fePDFFileName1: " & fePDFFileName1 & ", DateSt: " & DateSt, Message, TraceEventType.Information)
-            // End If
+            // --- Level 2: Event ID + Date Match Attempt ---
+            LogMessage("Attempting Level 2: Event ID + Date Match", item, TraceEventType.Verbose);
+            string fdfEventId = ExtractEventId(feFileName);
+            string fdfDateString = ExtractDateString(feFileName); // Expects dd-MM-yyyy
 
+            if (!string.IsNullOrEmpty(fdfEventId) && !string.IsNullOrEmpty(fdfDateString))
+            {
+                LogMessage($"Extracted from FDF: EventID='{fdfEventId}', Date='{fdfDateString}'", item, TraceEventType.Verbose);
+
+                string matchedPdf = FindPdfByCriteria(pdfFileName => {
+                    string pdfEventId = ExtractEventId(pdfFileName);
+                    string pdfDateString = ExtractDateString(pdfFileName);
+                    // Match if both Event ID and Date String match
+                    return pdfEventId == fdfEventId && pdfDateString == fdfDateString;
+                }, TIMESHEETS_PDF_PATH, item, ref PT);
+
+                if (matchedPdf != null)
+                {
+                    LogMessage($"Level 2 Success: Found match by Event ID and Date: {matchedPdf}", item, TraceEventType.Information);
+                    return matchedPdf;
+                }
+                else
+                {
+                    LogMessage("Level 2 Failed: No PDF found matching both Event ID and Date.", item, TraceEventType.Verbose);
+                }
+            }
+            else
+            {
+                LogMessage($"Level 2 Skipped: Could not extract both Event ID ('{fdfEventId ?? "null"}') and Date ('{fdfDateString ?? "null"}') from FDF: {feFileName}", item, TraceEventType.Verbose);
+            }
+
+            // --- Level 3: Event ID Match Attempt ---
+            LogMessage("Attempting Level 3: Event ID Only Match", item, TraceEventType.Verbose);
+            // Reuse fdfEventId extracted earlier
+            if (!string.IsNullOrEmpty(fdfEventId))
+            {
+                LogMessage($"Using extracted EventID='{fdfEventId}' for Level 3 search.", item, TraceEventType.Verbose);
+
+                string matchedPdf = FindPdfByCriteria(pdfFileName => {
+                    string pdfEventId = ExtractEventId(pdfFileName);
+                    // Match if Event ID matches
+                    return pdfEventId == fdfEventId;
+                }, TIMESHEETS_PDF_PATH, item, ref PT);
+
+                if (matchedPdf != null)
+                {
+                    LogMessage($"Level 3 Success: Found match by Event ID only: {matchedPdf}", item, TraceEventType.Information);
+                    return matchedPdf;
+                }
+                else
+                {
+                    LogMessage("Level 3 Failed: No PDF found matching Event ID.", item, TraceEventType.Verbose);
+                }
+            }
+            else
+            {
+                // This log message might be redundant if Level 2 already logged it, but good for clarity
+                LogMessage($"Level 3 Skipped: Could not extract Event ID from FDF: {feFileName}", item, TraceEventType.Verbose);
+            }
+
+            // --- All Attempts Failed ---
+            LogMessage($"All matching attempts failed for FDF: {feFileName}. No corresponding PDF found in {TIMESHEETS_PDF_PATH}", item, TraceEventType.Warning);
+            return null; // Indicate failure
         }
+
+        // Helper to clean FDF filename for exact matching
+        static private string CleanFdfBaseName(string fdfFileName)
+        {
+            if (string.IsNullOrEmpty(fdfFileName)) return null;
+
+            string baseName = fdfFileName;
+
+            // Remove known suffix (case-insensitive)
+            if (baseName.EndsWith("_data.fdf", StringComparison.OrdinalIgnoreCase))
+            {
+                baseName = baseName.Substring(0, baseName.Length - "_data.fdf".Length);
+            }
+            else if (baseName.EndsWith(".fdf", StringComparison.OrdinalIgnoreCase))
+            {
+                // Fallback if only .fdf is present (shouldn't happen based on description but good practice)
+                baseName = baseName.Substring(0, baseName.Length - ".fdf".Length);
+            }
+
+            // Remove trailing parenthesized numbers like (005) before the extension was removed
+            // Regex: Matches optional whitespace, followed by '(', one or more digits, ')' at the end of the string.
+            baseName = Regex.Replace(baseName, @"\s*\(\d+\)$", "").Trim();
+
+            return baseName;
+        }
+
+        // Helper to extract the first number (Event ID)
+        static private string ExtractEventId(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+            var match = Regex.Match(fileName.Trim(), @"^\d+");
+            return match.Success ? match.Value : null;
+        }
+
+        // Helper to extract the date string (dd-MM-yyyy)
+        // Using a slightly more robust regex to handle potential single digits and slight variations if needed,
+        // but sticking to the requested dd-MM-yyyy format primarily.
+        static private string ExtractDateString(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return null;
+            // Regex specifically for dd-MM-yyyy or d-M-yyyy format within the string
+            // Using non-capturing group for the date pattern itself
+            var match = Regex.Match(fileName, @"\b(\d{1,2}-\d{1,2}-\d{4})\b");
+
+            // Optional: Add validation if needed (e.g., check if DateTime.TryParseExact works)
+            // if (match.Success && DateTime.TryParseExact(match.Value, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            // {
+            //     return match.Value;
+            // }
+            return match.Success ? match.Value : null;
+        }
+
+        // Helper to find a PDF matching specific criteria by iterating through the directory
+        static private string FindPdfByCriteria(Func<string, bool> criteria, string pdfDirectoryPath, Microsoft.Graph.Message item, ref PDFType pt)
+        {
+            try
+            {
+                if (!System.IO.Directory.Exists(pdfDirectoryPath))
+                {
+                    LogMessage($"PDF directory not found: {pdfDirectoryPath}", item, TraceEventType.Warning);
+                    return null;
+                }
+
+                // Consider adjusting SearchOption if subdirectories are needed
+                foreach (var pdfFilePath in System.IO.Directory.EnumerateFiles(pdfDirectoryPath, "*.pdf", SearchOption.TopDirectoryOnly))
+                {
+                    string pdfFileName = Path.GetFileName(pdfFilePath);
+                    if (criteria(pdfFileName))
+                    {
+                        LogMessage($"Found matching PDF by criteria: {pdfFileName}", item, TraceEventType.Information);
+                        pt = PDFType.Timesheet; // Assuming PDFs in TIMESHEETS_PDF_PATH are Timesheets
+                        return pdfFileName;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Error searching for PDF files in {pdfDirectoryPath}: {ex.Message}", item, TraceEventType.Error);
+                LogError($"Error searching for PDF files in {pdfDirectoryPath}: {ex.ToString()}", item, TraceEventType.Error); // Log full exception details
+            }
+            return null; // No match found
+        }
+
+        //static string GetPDFFileName(string feFileName, Microsoft.Graph.Message item, ref PDFType PT)
+        //{
+        //    string fePDFFileName = "";
+        //    string fePDFFileName1 = "";
+        //    //System.Windows.Forms.Application.DoEvents();
+
+        //    var r = new Regex(@"\d{1,2}\-\d{1,2}\-\d{4}", RegexOptions.IgnoreCase);
+        //    var m = r.Match(feFileName);
+        //    if (m.Success)
+        //    {
+        //        int i;
+        //        if (feFileName.IndexOf("]") > 0)
+        //        {
+        //            i = m.Index + 11;
+        //            fePDFFileName = Strings.Left(feFileName, i) + ".pdf";
+        //            LogMessage("feFileName.IndexOf(\"]\") > 0: feFileName: " + feFileName + ", fePDFFileName: " + fePDFFileName, item, TraceEventType.Information);
+        //        }
+        //        else
+        //        {
+        //            string DateSt = Mid(feFileName, m.Index, 10);
+        //            i = m.Index + 10;
+        //            fePDFFileName = Strings.Left(feFileName, i) + ".pdf";
+        //            fePDFFileName1 = fePDFFileName.Replace(DateSt, "[" + DateSt + "]");
+        //            LogMessage("feFileName.IndexOf(\"]\") <= 0: feFileName: " + feFileName + ", fePDFFileName: " + fePDFFileName, item, TraceEventType.Information);
+        //        }
+
+        //        LogMessage("fePDFFileNamet: " + fePDFFileName + ", fePDFFileName1: " + fePDFFileName1, item, TraceEventType.Information);
+
+        //        if (System.IO.File.Exists(Path.Combine(TIMESHEETS_PDF_PATH, fePDFFileName)))
+        //        {
+        //            LogMessage("GetPDFFileName: Exists: " + fePDFFileName, item, TraceEventType.Information);
+        //            PT = PDFType.Timesheet;
+        //            return fePDFFileName;
+        //        }
+        //        else if (System.IO.File.Exists(Path.Combine(TIMESHEETS_PDF_PATH, fePDFFileName1)))
+        //        {
+        //            LogMessage("GetPDFFileName: Exists: " + fePDFFileName1, item, TraceEventType.Information);
+        //            PT = PDFType.Timesheet;
+        //            return fePDFFileName1;
+        //        }
+        //        else
+        //        {
+        //            return null;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // No date found
+        //        LogMessage("GetPDFFileName: No match, feFileName: " + feFileName, item, TraceEventType.Information);
+        //        return null;
+        //    }
+
+        //    // If feFileName.IndexOf("]") > 0 Then
+        //    // fePDFFileName = LeftStr(feFileName, feFileName.IndexOf("]")).ToLower().Replace("_data", "") & ".pdf"
+        //    // LogMessage("feFileName.IndexOf(""]"") > 0: feFileName: " & feFileName & ", fePDFFileName: " & fePDFFileName, Message, TraceEventType.Information)
+        //    // Else
+        //    // fePDFFileName = feFileName.ToLower().Replace(".fdf", ".pdf").Replace("_data", "")
+        //    // LogMessage("feFileName.IndexOf(""]"") <= 0: feFileName: " & feFileName & ", fePDFFileName: " & fePDFFileName, Message, TraceEventType.Information)
+        //    // Dim DateSt As String = Microsoft.VisualBasic.Right(fePDFFileName, 14)
+        //    // fePDFFileName1 = fePDFFileName.Replace(DateSt, "[" & DateSt)
+        //    // fePDFFileName1 = fePDFFileName1.Replace(".pdf", "].pdf")
+        //    // LogMessage("fePDFFileNamet: " & fePDFFileName & ", fePDFFileName1: " & fePDFFileName1 & ", DateSt: " & DateSt, Message, TraceEventType.Information)
+        //    // End If
+
+        //}
 
         static private void AddNotFoundEmail(string email, bool CRLF = false, LogChannels channel = LogChannels.Access)
         {
@@ -1954,7 +2131,7 @@ namespace Email_Processor_Framework
                 var config = LoadAppSettings();
                 if (null == config)
                 {
-                    LogError("var config = LoadAppSettings();", null, TraceEventType.Information,"Missing or invalid appsettings.json file. Please see README.md for configuration instructions.");
+                    LogError("var config = LoadAppSettings();", null, TraceEventType.Information, "Missing or invalid appsettings.json file. Please see README.md for configuration instructions.");
                     return false;
                 }
 
@@ -2373,7 +2550,7 @@ namespace Email_Processor_Framework
             string networkDrive = @"F:\";
             string backupFolder = @"F:\Events Data\DB_Backups";
             //string backupFolder = @"H:\DB_Backups";
-        
+
             long requiredSpace = (long)(5.0 * 1024.0 * 1024.0 * 1024.0); // 5GB in bytes
 
             //zip all mdb files
