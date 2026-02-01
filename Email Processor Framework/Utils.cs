@@ -12,7 +12,7 @@ namespace Email_Processor
     public static class Utils
     {
         public const string TEST_TOKEN = "[TEST]";
-        public const string SYSTEM_LOG_PATH = @"\\db-server\H\Graph Email Processor v1 Logs\";
+        public const string SYSTEM_LOG_PATH = @"\\data-server\Logs\Graph Email Processor v1 Logs\";
         public const string SYSTEM_LOG_ACCESS = "GraphEmailProcessor-Access.log";
         public const string SYSTEM_LOG_SQLSERVER = "GraphEmailProcessor-SQLServer.log";
         public const string SYSTEM_LOG_ACCESS_NOTFOUND = "GraphEmailProcessor-Access-NotFound.log";
