@@ -2555,7 +2555,7 @@ namespace Email_Processor_Framework
             long requiredSpace = (long)(5.0 * 1024.0 * 1024.0 * 1024.0); // 5GB in bytes
 
             //zip all mdb files
-            //ZipAndTestMdbFiles(backupFolder);
+            ZipAndTestMdbFiles(backupFolder);
 
             //remove when done
             return;
