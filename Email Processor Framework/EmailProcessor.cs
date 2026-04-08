@@ -2114,12 +2114,6 @@ namespace Email_Processor_Framework
             //ProcessTimesheetAttachments();
             //ProcessStaffWorkRequests();
 
-            if (clearDiskSpace)
-            {
-                //LogMessage("ClearDiskSpace();", null, TraceEventType.Information);
-                ClearDiskSpace();
-            }
-
             DateTime LastRun = DateTime.Now;
 
             //LogMessage("if (isProcessUnsubscribeEmailsOK())", null, TraceEventType.Information);
@@ -2237,6 +2231,18 @@ namespace Email_Processor_Framework
             catch (Exception ex)
             {
                 LogError("Process::await ProcessTimesheetAttachmentsAsync();", null, TraceEventType.Error, ex.Message);
+            }
+
+            if (clearDiskSpace)
+            {
+                try
+                {
+                    ClearDiskSpace();
+                }
+                catch (Exception ex)
+                {
+                    LogError("Process::ClearDiskSpace();", null, TraceEventType.Error, ex.Message);
+                }
             }
 
             //Properties.Settings.Default.UnsubscribeServiceLastRun = DateTime.Now.ToOADate();
@@ -2558,8 +2564,8 @@ namespace Email_Processor_Framework
             //return;
 
 
-            //zip all mdb files
-            ZipAndTestMdbFiles(backupFolder);
+            //zip mdb/accdb files in batches
+            ZipAndTestMdbFiles(backupFolder, Email_Processor_Framework.Properties.Settings.Default.ZipBatchSize);
 
 
             DriveInfo drive = new DriveInfo(networkDrive);
@@ -2615,17 +2621,24 @@ namespace Email_Processor_Framework
             //Console.ReadLine();
         }
 
-        static void ZipAndTestMdbFiles(string folderPath)
+        static void ZipAndTestMdbFiles(string folderPath, int batchSize)
         {
-            string[] mdbFiles = System.IO.Directory.GetFiles(folderPath, "*.mdb");
+            string[] dbFiles = System.IO.Directory.GetFiles(folderPath, "*.mdb")
+                .Concat(System.IO.Directory.GetFiles(folderPath, "*.accdb"))
+                .ToArray();
 
-            foreach (string mdbFile in mdbFiles)
+            int processedCount = 0;
+
+            foreach (string dbFile in dbFiles)
             {
-                string zipFilePath = Path.ChangeExtension(mdbFile, ".zip");
+                if (processedCount >= batchSize)
+                    break;
+
+                string zipFilePath = dbFile + ".zip";
 
                 if (!System.IO.File.Exists(zipFilePath))
                 {
-                    if (CreateZipFile(mdbFile, zipFilePath))
+                    if (CreateZipFile(dbFile, zipFilePath))
                     {
                         if (TestZipFile(zipFilePath))
                         {
@@ -2633,9 +2646,20 @@ namespace Email_Processor_Framework
                         }
                         else
                         {
-                            Console.WriteLine($"Failed to test: {zipFilePath}");
+                            Console.WriteLine($"Failed to test: {zipFilePath}. Deleting failed zip.");
+                            System.IO.File.Delete(zipFilePath);
                         }
                     }
+                    else
+                    {
+                        if (System.IO.File.Exists(zipFilePath))
+                        {
+                            Console.WriteLine($"Failed to create zip: {zipFilePath}. Deleting partial file.");
+                            System.IO.File.Delete(zipFilePath);
+                        }
+                    }
+
+                    processedCount++;
                 }
                 else
                 {
