@@ -2554,11 +2554,13 @@ namespace Email_Processor_Framework
 
             long requiredSpace = (long)(5.0 * 1024.0 * 1024.0 * 1024.0); // 5GB in bytes
 
+            //remove when done
+            return;
+
+
             //zip all mdb files
             ZipAndTestMdbFiles(backupFolder);
 
-            //remove when done
-            return;
 
             DriveInfo drive = new DriveInfo(networkDrive);
             long freeSpace = drive.AvailableFreeSpace;
