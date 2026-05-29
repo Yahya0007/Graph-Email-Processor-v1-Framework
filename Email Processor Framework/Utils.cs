@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualBasic;
+using Microsoft.Graph.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -73,7 +74,7 @@ namespace Email_Processor
             return result;
         }
 
-        public static void LogMessage(string eventName, Microsoft.Graph.Message item, TraceEventType e, string message = "", bool CRLF = false, LogChannels channel = LogChannels.Access, bool UI = false)
+        public static void LogMessage(string eventName, Microsoft.Graph.Models.Message item, TraceEventType e, string message = "", bool CRLF = false, LogChannels channel = LogChannels.Access, bool UI = false)
         {
             if (!System.IO.Directory.Exists(SYSTEM_LOG_PATH))
             {
@@ -129,7 +130,7 @@ namespace Email_Processor
             }
         }
 
-        public static void LogError(string eventName, Microsoft.Graph.Message item, TraceEventType e, string Message = "", bool CRLF = false, LogChannels channel = LogChannels.Access, bool UI = false)
+        public static void LogError(string eventName, Microsoft.Graph.Models.Message item, TraceEventType e, string Message = "", bool CRLF = false, LogChannels channel = LogChannels.Access, bool UI = false)
         {
             if (!System.IO.Directory.Exists(SYSTEM_LOG_PATH))
             {

@@ -1,5 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Graph;
+using Microsoft.Graph.Models;
+using Microsoft.Kiota.Abstractions;
+using Microsoft.Kiota.Abstractions.Authentication;
+using System.Threading;
 using Microsoft.Identity.Client;
 using Microsoft.VisualBasic;
 using Microsoft.VisualBasic.CompilerServices;
@@ -65,29 +69,27 @@ namespace Email_Processor_Framework
 
         static private async Task ProcessRecruitmentEmailsAsync(GraphServiceClient graphClient)
         {
-            List<QueryOption> options = new List<QueryOption>
-            {
-                //new QueryOption("$top", "1")
-            };
-
             var Users = await graphClient
                          .Users
-                         .Request()
-                         .Filter("startswith(displayName,'Staffing')").Top(1)
-                         .GetAsync();
+                         .GetAsync(rc =>
+                         {
+                             rc.QueryParameters.Filter = "startswith(displayName,'Staffing')";
+                             rc.QueryParameters.Top = 1;
+                         });
 
-            var user = Users[0];
+            var user = Users.Value[0];
 
             var inboxMessages = await graphClient
                       .Users[user.Id]
-                      .MailFolders.Inbox
+                      .MailFolders["Inbox"]
                       .Messages
-                      .Request()
-                      .Filter("receivedDateTime gt 2025-02-23T00:00:00Z")
-                      .Top(1000)
-                      .GetAsync();
+                      .GetAsync(rc =>
+                      {
+                          rc.QueryParameters.Filter = "receivedDateTime gt 2025-02-23T00:00:00Z";
+                          rc.QueryParameters.Top = 1000;
+                      });
 
-            foreach (Microsoft.Graph.Message x in inboxMessages)
+            foreach (var x in inboxMessages.Value)
             {
                 try
                 {
@@ -101,7 +103,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static private async Task ProcessRecruitmentMessageAsync(Microsoft.Graph.Message message, User user)
+        static private async Task ProcessRecruitmentMessageAsync(Microsoft.Graph.Models.Message message, User user)
         {
             string emailBody = message.Body.Content;
             Dictionary<string, string> applicantData = ParseEmailBody(emailBody);
@@ -229,11 +231,6 @@ namespace Email_Processor_Framework
 
         static private async Task ProcessUnsubscribeEmailsAsync(GraphServiceClient graphClient)
         {
-            List<QueryOption> options = new List<QueryOption>
-            {
-                //new QueryOption("$top", "1")
-            };
-
             //var graphResult = await graphClient.Users.Request(options)
             //    .Filter("startswith(displayName,'Unsubscribe')")
             //    .GetAsync();
@@ -243,11 +240,13 @@ namespace Email_Processor_Framework
 
             var Users = await graphClient
                          .Users
-                         .Request()
-                         .Filter("startswith(displayName,'Unsubscribe')").Top(1)
-                         .GetAsync();
+                         .GetAsync(rc =>
+                         {
+                             rc.QueryParameters.Filter = "startswith(displayName,'Unsubscribe')";
+                             rc.QueryParameters.Top = 1;
+                         });
 
-            var user = Users[0];
+            var user = Users.Value[0];
 
             // Get message from the user's inbox
             //var inboxMessages = await graphClient
@@ -292,21 +291,22 @@ namespace Email_Processor_Framework
 
             var inboxMessages = await graphClient
                   .Users[user.Id]
-                  .MailFolders.Inbox
+                  .MailFolders["Inbox"]
                   .Messages
-                  .Request()
-                  .Filter("isRead eq false")
-                  .Top(1000)
-                  //.Select("Body, Subject")
-                  .GetAsync();
+                  .GetAsync(rc =>
+                  {
+                      rc.QueryParameters.Filter = "isRead eq false";
+                      rc.QueryParameters.Top = 1000;
+                      //.Select("Body, Subject")
+                  });
 
-            foreach (Microsoft.Graph.Message x in inboxMessages)
+            foreach (var x in inboxMessages.Value)
             {
                 await ProcessUnsubscribeMessageAsync(x, user);
             }
         }
 
-        static private async Task ProcessUnsubscribeMessageAsync(Microsoft.Graph.Message message, User user)
+        static private async Task ProcessUnsubscribeMessageAsync(Microsoft.Graph.Models.Message message, User user)
         {
             //Check if message has further message attachments and process them
             //if (message.HasAttachments == true)
@@ -413,7 +413,7 @@ namespace Email_Processor_Framework
                     if (!emailMatch.Value.Contains(domain))
                     {
                         //Emails.Add(emailMatch.Value);
-                        var m = new Microsoft.Graph.Message();
+                        var m = new Microsoft.Graph.Models.Message();
 
                         var b = new ItemBody();
                         b.Content = EmailBody;
@@ -480,7 +480,7 @@ namespace Email_Processor_Framework
         //    LogMessage("Message from sender " + x.Sender.EmailAddress.Address + " with subject '" + x.Subject + "' updated successfully.", x, TraceEventType.Information);
         //}
 
-        static private void UnsubcribeStaff(Microsoft.Graph.Message message, Microsoft.Graph.Message originalmessage, User user)
+        static private void UnsubcribeStaff(Microsoft.Graph.Models.Message message, Microsoft.Graph.Models.Message originalmessage, User user)
         {
             LogMessage("Processing unsubscribe request.", message, TraceEventType.Information);
             string Email = message.Sender.EmailAddress.Address;
@@ -491,7 +491,7 @@ namespace Email_Processor_Framework
             LogMessage(" ", message, TraceEventType.Information, "", true);
         }
 
-        static private void UnsubscribeStaff(string Email, string StaffName, string BodyText, Microsoft.Graph.Message message, Microsoft.Graph.Message originalmessage, User user)
+        static private void UnsubscribeStaff(string Email, string StaffName, string BodyText, Microsoft.Graph.Models.Message message, Microsoft.Graph.Models.Message originalmessage, User user)
         {
             //return
 
@@ -593,10 +593,9 @@ namespace Email_Processor_Framework
 
                     graphClient
                         .Users[user.Id]
-                        .MailFolders.Inbox
+                        .MailFolders["Inbox"]
                         .Messages[$"{originalmessage.Id}"]
-                        .Request()
-                        .UpdateAsync(new Microsoft.Graph.Message()
+                        .PatchAsync(new Microsoft.Graph.Models.Message()
                         {
                             Subject = subject,
                             IsRead = true
@@ -624,7 +623,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static private UnsubscribeStatus UnsubscribeStaffAccess(string Email, string StaffName, string BodyText, Microsoft.Graph.Message message)
+        static private UnsubscribeStatus UnsubscribeStaffAccess(string Email, string StaffName, string BodyText, Microsoft.Graph.Models.Message message)
         {
             object StaffID;
             StaffID = DLookupAccess("Staff ID", "Staff", "[E-Mail] = \"" + Email + "\"");
@@ -662,7 +661,7 @@ namespace Email_Processor_Framework
             return UnsubscribeStatus.Error;
         }
 
-        static private UnsubscribeStatus UnsubscribeStaffSQLServer(string Email, string StaffName, string BodyText, Microsoft.Graph.Message message)
+        static private UnsubscribeStatus UnsubscribeStaffSQLServer(string Email, string StaffName, string BodyText, Microsoft.Graph.Models.Message message)
         {
             object StaffID;
             StaffID = DLookupSQLServer("ID", "Staff", "Email = '" + Email + "'");
@@ -702,7 +701,7 @@ namespace Email_Processor_Framework
 
         #endregion "ProcessUnsubscribeEmailsAsync"
 
-        static void UpdateReferencesSQLServer(Microsoft.Graph.Message message, string fePDFFileName, string feFileName)
+        static void UpdateReferencesSQLServer(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -751,8 +750,7 @@ namespace Email_Processor_Framework
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
                         graphClient.Me.Messages["{message.Id}"]
-                            .Request()
-                            .UpdateAsync(message);
+                            .PatchAsync(message);
                     }
                     else if (j > 0)
                     {
@@ -762,8 +760,7 @@ namespace Email_Processor_Framework
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
                         graphClient.Me.Messages["{message.Id}"]
-                           .Request()
-                           .UpdateAsync(message);
+                           .PatchAsync(message);
                     }
                     else
                     {
@@ -777,7 +774,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static void UpdateEditableTiemsheetSQLServer(Microsoft.Graph.Message message, string fePDFFileName, string feFileName)
+        static void UpdateEditableTiemsheetSQLServer(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -801,8 +798,7 @@ namespace Email_Processor_Framework
                     //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
                     graphClient.Me.Messages["{message.Id}"]
-                        .Request()
-                        .UpdateAsync(message);
+                        .PatchAsync(message);
 
                     string FullPath = Path.Combine(SYSTEM_LOG_PATH, CurrentTimeStamp.ToString("yyyy-MM-dd HH-mm-ss") + " Timesheet data for event " + EventID.ToString() + " saved.txt");
                     try
@@ -822,7 +818,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static void UpdateReferencesAccess(Microsoft.Graph.Message message, string fePDFFileName, string feFileName)
+        static void UpdateReferencesAccess(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -871,8 +867,7 @@ namespace Email_Processor_Framework
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
                         graphClient.Me.Messages["{message.Id}"]
-                            .Request()
-                            .UpdateAsync(message);
+                            .PatchAsync(message);
 
                     }
                     else if (j > 0)
@@ -883,8 +878,7 @@ namespace Email_Processor_Framework
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
                         graphClient.Me.Messages["{message.Id}"]
-                           .Request()
-                           .UpdateAsync(message);
+                           .PatchAsync(message);
                     }
                     else
                     {
@@ -898,7 +892,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static void UpdateEditableTiemsheetAccess(Microsoft.Graph.Message message, string fePDFFileName, string feFileName)
+        static void UpdateEditableTiemsheetAccess(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -923,8 +917,7 @@ namespace Email_Processor_Framework
                     //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
                     graphClient.Me.Messages["{message.Id}"]
-                       .Request()
-                       .UpdateAsync(message);
+                       .PatchAsync(message);
 
                     string FullPath = Path.Combine(SYSTEM_LOG_PATH, CurrentTimeStamp.ToString("yyyy-MM-dd HH-mm-ss") + " Timesheet data for event " + EventID.ToString() + " saved.txt");
                     try
@@ -944,7 +937,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static string GetPDFFileName(string feFileName, Microsoft.Graph.Message item, ref PDFType PT)
+        static string GetPDFFileName(string feFileName, Microsoft.Graph.Models.Message item, ref PDFType PT)
         {
             LogMessage($"Starting PDF search for FDF: {feFileName}", item, TraceEventType.Information);
 
@@ -1090,7 +1083,7 @@ namespace Email_Processor_Framework
         }
 
         // Helper to find a PDF matching specific criteria by iterating through the directory
-        static private string FindPdfByCriteria(Func<string, bool> criteria, string pdfDirectoryPath, Microsoft.Graph.Message item, ref PDFType pt)
+        static private string FindPdfByCriteria(Func<string, bool> criteria, string pdfDirectoryPath, Microsoft.Graph.Models.Message item, ref PDFType pt)
         {
             try
             {
@@ -1239,11 +1232,12 @@ namespace Email_Processor_Framework
 
             var Users = await graphClient
                          .Users
-                         .Request()
-                         .Filter("startswith(mail,'WorkInterest')")
-                         .GetAsync();
+                         .GetAsync(rc =>
+                         {
+                             rc.QueryParameters.Filter = "startswith(mail,'WorkInterest')";
+                         });
 
-            var user = Users[0];
+            var user = Users.Value[0];
 
             //var inboxMessages = await graphClient
             //     .Users[user.Id]
@@ -1281,12 +1275,13 @@ namespace Email_Processor_Framework
 
             var inboxMessages = await graphClient
        .Users[user.Id]
-       .MailFolders.Inbox
+       .MailFolders["Inbox"]
        .Messages
-       .Request()
-       .Filter("isRead eq false")
-       .Top(1000)
-       .GetAsync();
+       .GetAsync(rc =>
+       {
+           rc.QueryParameters.Filter = "isRead eq false";
+           rc.QueryParameters.Top = 1000;
+       });
 
             //var y = inboxMessages.ElementAt(0);
 
@@ -1298,7 +1293,7 @@ namespace Email_Processor_Framework
 
             //return;
 
-            foreach (Microsoft.Graph.Message x in inboxMessages)
+            foreach (var x in inboxMessages.Value)
             {
                 //if (x.IsRead == false)
                 //if ((x.Subject != null) && (!x.Subject.Contains(MSG_NOT_SAVED)))
@@ -1308,7 +1303,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static private void ProcessStaffWorkRequestsMessageAsync(Microsoft.Graph.Message EmailMsg, User user)
+        static private void ProcessStaffWorkRequestsMessageAsync(Microsoft.Graph.Models.Message EmailMsg, User user)
         {
 
             //return;
@@ -1679,7 +1674,7 @@ namespace Email_Processor_Framework
 
                         //EmailMsg.Body.Content = BodyText;
 
-                        Microsoft.Graph.ItemBody b = new Microsoft.Graph.ItemBody();
+                        Microsoft.Graph.Models.ItemBody b = new Microsoft.Graph.Models.ItemBody();
 
                         b.Content = BodyText;
 
@@ -1687,10 +1682,9 @@ namespace Email_Processor_Framework
 
                         graphClient
                             .Users[user.Id]
-                            .MailFolders.Inbox
+                            .MailFolders["Inbox"]
                             .Messages[$"{EmailMsg.Id}"]
-                            .Request()
-                            .UpdateAsync(new Microsoft.Graph.Message()
+                            .PatchAsync(new Microsoft.Graph.Models.Message()
                             {
                                 Subject = subject,
                                 Body = b,
@@ -1716,22 +1710,24 @@ namespace Email_Processor_Framework
 
             var Users = await graphClient
                          .Users
-                         .Request()
-                         .Filter("startswith(mail,'WorkInterest')")
-                         .GetAsync();
+                         .GetAsync(rc =>
+                         {
+                             rc.QueryParameters.Filter = "startswith(mail,'WorkInterest')";
+                         });
 
-            var user = Users[0];
+            var user = Users.Value[0];
 
             var inboxMessages = await graphClient
                .Users[user.Id]
-               .MailFolders.Inbox
+               .MailFolders["Inbox"]
                .Messages
-               .Request()
-               .Filter("isRead eq false")
-               .Top(1000)
-               .GetAsync();
+               .GetAsync(rc =>
+               {
+                   rc.QueryParameters.Filter = "isRead eq false";
+                   rc.QueryParameters.Top = 1000;
+               });
 
-            foreach (Microsoft.Graph.Message x in inboxMessages)
+            foreach (var x in inboxMessages.Value)
             {
                 //if (x.IsRead == false)
                 //if ((x.Subject != null) && (!x.Subject.Contains(MSG_NOT_SAVED)))
@@ -1741,7 +1737,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static private void ProcessStudentAvailabilityMessageAsync(Microsoft.Graph.Message EmailMsg, User user)
+        static private void ProcessStudentAvailabilityMessageAsync(Microsoft.Graph.Models.Message EmailMsg, User user)
         {
 
             //return;
@@ -1862,7 +1858,7 @@ namespace Email_Processor_Framework
 
             //EmailMsg.Body.Content = BodyText;
 
-            Microsoft.Graph.ItemBody b = new Microsoft.Graph.ItemBody();
+            Microsoft.Graph.Models.ItemBody b = new Microsoft.Graph.Models.ItemBody();
 
             b.Content = EmailMsg.Body.Content;
 
@@ -1870,10 +1866,9 @@ namespace Email_Processor_Framework
 
             graphClient
                 .Users[user.Id]
-                .MailFolders.Inbox
+                .MailFolders["Inbox"]
                 .Messages[$"{EmailMsg.Id}"]
-                .Request()
-                .UpdateAsync(new Microsoft.Graph.Message()
+                .PatchAsync(new Microsoft.Graph.Models.Message()
                 {
                     Subject = subject,
                     Body = b,
@@ -1887,11 +1882,12 @@ namespace Email_Processor_Framework
         {
             var Users = await graphClient
                       .Users
-                      .Request()
-                      .Filter("startswith(mail,'Timesheets')")
-                      .GetAsync();
+                      .GetAsync(rc =>
+                      {
+                          rc.QueryParameters.Filter = "startswith(mail,'Timesheets')";
+                      });
 
-            var user = Users[0];
+            var user = Users.Value[0];
 
             //var inboxMessages = await graphClient
             //     .Users[user.Id]
@@ -1903,15 +1899,16 @@ namespace Email_Processor_Framework
 
             var inboxMessages = await graphClient
                  .Users[user.Id]
-                 .MailFolders.Inbox
+                 .MailFolders["Inbox"]
                  .Messages
-                 .Request()
-                 .Filter("isRead eq false")
-                 .Top(1000)
-                 //.Select("Body, Subject")
-                 .GetAsync();
+                 .GetAsync(rc =>
+                 {
+                     rc.QueryParameters.Filter = "isRead eq false";
+                     rc.QueryParameters.Top = 1000;
+                     //.Select("Body, Subject")
+                 });
 
-            foreach (Microsoft.Graph.Message x in inboxMessages)
+            foreach (var x in inboxMessages.Value)
             {
                 //if (x.IsRead == false)
                 //if ((x.Subject != null) && (!x.Subject.Contains(MSG_NOT_SAVED)))
@@ -1921,7 +1918,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static private async Task ProcessStaffTimesheetsAsync(Microsoft.Graph.Message message, User user)
+        static private async Task ProcessStaffTimesheetsAsync(Microsoft.Graph.Models.Message message, User user)
         {
             LogMessage("", null, TraceEventType.Information);
 
@@ -1935,13 +1932,12 @@ namespace Email_Processor_Framework
                                     .Users[user.Id]
                                     .Messages[$"{message.Id}"]
                                     .Attachments
-                                    .Request()
                                     .GetAsync();
 
-                LogMessage("Iterating through " + attachments.Count.ToString() + " attachments.", message, TraceEventType.Information);
+                LogMessage("Iterating through " + attachments.Value.Count.ToString() + " attachments.", message, TraceEventType.Information);
 
                 //foreach (var attachment in message.Attachments)
-                foreach (var attachment in attachments)
+                foreach (var attachment in attachments.Value)
                 {
                     //if (attachment.ODataType == "#microsoft.graph.itemAttachment")
                     //{
@@ -2072,7 +2068,7 @@ namespace Email_Processor_Framework
             System.IO.File.WriteAllBytes(p, fileAttachment.ContentBytes);
         }
 
-        static private void SetMessageSubject(Microsoft.Graph.Message message, User user, string v)
+        static private void SetMessageSubject(Microsoft.Graph.Models.Message message, User user, string v)
         {
             var subject = message.Subject.Replace(MSG_SAVED, "").Replace(MSG_NOT_SAVED, "").Replace(v, "");
 
@@ -2082,10 +2078,9 @@ namespace Email_Processor_Framework
 
             graphClient
                 .Users[user.Id]
-                .MailFolders.Inbox
+                .MailFolders["Inbox"]
                 .Messages[$"{message.Id}"]
-                .Request()
-                .UpdateAsync(new Microsoft.Graph.Message()
+                .PatchAsync(new Microsoft.Graph.Models.Message()
                 {
                     Subject = subject,
                     IsRead = true
@@ -2369,7 +2364,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static object ExecuteScalar(string St, Microsoft.Graph.Message message = null)
+        static object ExecuteScalar(string St, Microsoft.Graph.Models.Message message = null)
         {
             var Conn = new OleDbConnection(LocalAccessConnSt);
             try
@@ -2395,7 +2390,7 @@ namespace Email_Processor_Framework
             return null;
         }
 
-        static object ExecuteNonQuery(string St, Microsoft.Graph.Message message = null)
+        static object ExecuteNonQuery(string St, Microsoft.Graph.Models.Message message = null)
         {
             var Conn = new OleDbConnection(LocalAccessConnSt);
             try
@@ -2423,7 +2418,7 @@ namespace Email_Processor_Framework
             return null;
         }
 
-        static object ExecuteNonQuerySQLServer(string St, Microsoft.Graph.Message message = null)
+        static object ExecuteNonQuerySQLServer(string St, Microsoft.Graph.Models.Message message = null)
         {
             var Conn = new SqlConnection(LocalSQLServerConnSt);
             try
@@ -2451,7 +2446,7 @@ namespace Email_Processor_Framework
             return null;
         }
 
-        static object DLookupAccess(string Value, string Table, string Condition = "", Microsoft.Graph.Message message = null)
+        static object DLookupAccess(string Value, string Table, string Condition = "", Microsoft.Graph.Models.Message message = null)
         {
             var Conn = new OleDbConnection(LocalAccessConnSt);
 
@@ -2481,7 +2476,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static object DLookupSQLServer(string Value, string Table, string Condition = "", Microsoft.Graph.Message message = null)
+        static object DLookupSQLServer(string Value, string Table, string Condition = "", Microsoft.Graph.Models.Message message = null)
         {
             var Conn = new SqlConnection(LocalSQLServerConnSt);
 
@@ -2510,7 +2505,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static object DLookupSQLServerRemote(string Value, string Table, string Condition = "", Microsoft.Graph.Message message = null)
+        static object DLookupSQLServerRemote(string Value, string Table, string Condition = "", Microsoft.Graph.Models.Message message = null)
         {
             var Conn = new SqlConnection(RemoteSQLServerConnSt);
 
@@ -2703,23 +2698,18 @@ namespace Email_Processor_Framework
             _scopes = scopes;
         }
 
-        /// <summary>
-        /// Update HttpRequestMessage with credentials
-        /// </summary>
-        public async Task AuthenticateRequestAsync(HttpRequestMessage request)
+        public async Task AuthenticateRequestAsync(
+            RequestInformation request,
+            Dictionary<string, object> additionalAuthenticationContext = null,
+            CancellationToken cancellationToken = default)
         {
             var token = await GetTokenAsync();
-            request.Headers.Authorization = new AuthenticationHeaderValue("bearer", token);
+            request.Headers.Add("Authorization", $"Bearer {token}");
         }
 
-        /// <summary>
-        /// Acquire Token 
-        /// </summary>
         public async Task<string> GetTokenAsync()
         {
-            AuthenticationResult authResult = null;
-            authResult = await _clientApplication.AcquireTokenForClient(_scopes)
-                                .ExecuteAsync();
+            var authResult = await _clientApplication.AcquireTokenForClient(_scopes).ExecuteAsync();
             return authResult.AccessToken;
         }
     }
