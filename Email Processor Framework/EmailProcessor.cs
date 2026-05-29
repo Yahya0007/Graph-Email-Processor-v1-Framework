@@ -603,7 +603,7 @@ namespace Email_Processor_Framework
 
                     originalmessage.IsDraft = false;
                 }
-                catch (ServiceException ex)
+                catch (Microsoft.Graph.Models.ODataErrors.ODataError ex)
                 {
                     LogMessage("UnsubscribeStaff::UpdateAsync: Email message categories for staff with email " + Email + " not updated." + ex.Message, message, TraceEventType.Error);
                 }
