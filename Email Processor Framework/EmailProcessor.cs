@@ -377,7 +377,7 @@ namespace Email_Processor_Framework
             if (!message.Sender.EmailAddress.Address.Contains(domain))
             {
                 //Emails.Add(x.Sender.EmailAddress.Address);
-                UnsubcribeStaff(message, message, user);
+                await UnsubcribeStaff(message, message, user);
             }
             else
             {
@@ -429,7 +429,7 @@ namespace Email_Processor_Framework
                         m.Sender = s;
 
                         //if (UnsubcribeStaff(emailMatch.Value, emailMatch.Value, EmailBody, null)== UnsubscribeStatus.Unsubscribed)
-                        UnsubcribeStaff(m, message, user);
+                        await UnsubcribeStaff(m, message, user);
                     }
                 }
             }
@@ -480,18 +480,18 @@ namespace Email_Processor_Framework
         //    LogMessage("Message from sender " + x.Sender.EmailAddress.Address + " with subject '" + x.Subject + "' updated successfully.", x, TraceEventType.Information);
         //}
 
-        static private void UnsubcribeStaff(Microsoft.Graph.Models.Message message, Microsoft.Graph.Models.Message originalmessage, User user)
+        static private async Task UnsubcribeStaff(Microsoft.Graph.Models.Message message, Microsoft.Graph.Models.Message originalmessage, User user)
         {
             LogMessage("Processing unsubscribe request.", message, TraceEventType.Information);
             string Email = message.Sender.EmailAddress.Address;
             string StaffName = message.Sender.EmailAddress.Name;
             string BodyText = message.Body.Content.Replace("\"", "\"\"");
             //return UnsubscribeStaffAccess(Email, StaffName, BodyText, message) | UnsubscribeStaffSQLServer(Email, StaffName, BodyText, message);
-            UnsubscribeStaff(Email, StaffName, BodyText, message, originalmessage, user);
+            await UnsubscribeStaff(Email, StaffName, BodyText, message, originalmessage, user);
             LogMessage(" ", message, TraceEventType.Information, "", true);
         }
 
-        static private void UnsubscribeStaff(string Email, string StaffName, string BodyText, Microsoft.Graph.Models.Message message, Microsoft.Graph.Models.Message originalmessage, User user)
+        static private async Task UnsubscribeStaff(string Email, string StaffName, string BodyText, Microsoft.Graph.Models.Message message, Microsoft.Graph.Models.Message originalmessage, User user)
         {
             //return
 
@@ -591,7 +591,7 @@ namespace Email_Processor_Framework
 
                     originalmessage.IsDraft = true;
 
-                    graphClient
+                    await graphClient
                         .Users[user.Id]
                         .MailFolders["Inbox"]
                         .Messages[$"{originalmessage.Id}"]
@@ -603,7 +603,7 @@ namespace Email_Processor_Framework
 
                     originalmessage.IsDraft = false;
                 }
-                catch (ServiceException ex)
+                catch (Microsoft.Graph.Models.ODataErrors.ODataError ex)
                 {
                     LogMessage("UnsubscribeStaff::UpdateAsync: Email message categories for staff with email " + Email + " not updated." + ex.Message, message, TraceEventType.Error);
                 }
@@ -701,7 +701,7 @@ namespace Email_Processor_Framework
 
         #endregion "ProcessUnsubscribeEmailsAsync"
 
-        static void UpdateReferencesSQLServer(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
+        static async Task UpdateReferencesSQLServer(Microsoft.Graph.Models.Message message, User user, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -749,7 +749,7 @@ namespace Email_Processor_Framework
                         message.IsRead = true;
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
-                        graphClient.Me.Messages["{message.Id}"]
+                        await graphClient.Users[user.Id].MailFolders["Inbox"].Messages[$"{message.Id}"]
                             .PatchAsync(message);
                     }
                     else if (j > 0)
@@ -759,7 +759,7 @@ namespace Email_Processor_Framework
                         message.IsRead = true;
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
-                        graphClient.Me.Messages["{message.Id}"]
+                        await graphClient.Users[user.Id].MailFolders["Inbox"].Messages[$"{message.Id}"]
                            .PatchAsync(message);
                     }
                     else
@@ -774,7 +774,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static void UpdateEditableTiemsheetSQLServer(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
+        static async Task UpdateEditableTiemsheetSQLServer(Microsoft.Graph.Models.Message message, User user, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -797,7 +797,7 @@ namespace Email_Processor_Framework
                     message.IsRead = true;
                     //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
-                    graphClient.Me.Messages["{message.Id}"]
+                    await graphClient.Users[user.Id].MailFolders["Inbox"].Messages[$"{message.Id}"]
                         .PatchAsync(message);
 
                     string FullPath = Path.Combine(SYSTEM_LOG_PATH, CurrentTimeStamp.ToString("yyyy-MM-dd HH-mm-ss") + " Timesheet data for event " + EventID.ToString() + " saved.txt");
@@ -818,7 +818,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static void UpdateReferencesAccess(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
+        static async Task UpdateReferencesAccess(Microsoft.Graph.Models.Message message, User user, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -866,7 +866,7 @@ namespace Email_Processor_Framework
                         message.IsRead = true;
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
-                        graphClient.Me.Messages["{message.Id}"]
+                        await graphClient.Users[user.Id].MailFolders["Inbox"].Messages[$"{message.Id}"]
                             .PatchAsync(message);
 
                     }
@@ -877,7 +877,7 @@ namespace Email_Processor_Framework
                         message.IsRead = true;
                         //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
-                        graphClient.Me.Messages["{message.Id}"]
+                        await graphClient.Users[user.Id].MailFolders["Inbox"].Messages[$"{message.Id}"]
                            .PatchAsync(message);
                     }
                     else
@@ -892,7 +892,7 @@ namespace Email_Processor_Framework
             }
         }
 
-        static void UpdateEditableTiemsheetAccess(Microsoft.Graph.Models.Message message, string fePDFFileName, string feFileName)
+        static async Task UpdateEditableTiemsheetAccess(Microsoft.Graph.Models.Message message, User user, string fePDFFileName, string feFileName)
         {
             try
             {
@@ -916,7 +916,7 @@ namespace Email_Processor_Framework
                     message.IsRead = true;
                     //message.Update(ConflictResolutionMode.AlwaysOverwrite);
 
-                    graphClient.Me.Messages["{message.Id}"]
+                    await graphClient.Users[user.Id].MailFolders["Inbox"].Messages[$"{message.Id}"]
                        .PatchAsync(message);
 
                     string FullPath = Path.Combine(SYSTEM_LOG_PATH, CurrentTimeStamp.ToString("yyyy-MM-dd HH-mm-ss") + " Timesheet data for event " + EventID.ToString() + " saved.txt");
@@ -1298,12 +1298,12 @@ namespace Email_Processor_Framework
                 //if (x.IsRead == false)
                 //if ((x.Subject != null) && (!x.Subject.Contains(MSG_NOT_SAVED)))
                 //{
-                ProcessStaffWorkRequestsMessageAsync(x, user);
+                await ProcessStaffWorkRequestsMessageAsync(x, user);
                 //}
             }
         }
 
-        static private void ProcessStaffWorkRequestsMessageAsync(Microsoft.Graph.Models.Message EmailMsg, User user)
+        static private async Task ProcessStaffWorkRequestsMessageAsync(Microsoft.Graph.Models.Message EmailMsg, User user)
         {
 
             //return;
@@ -1680,7 +1680,7 @@ namespace Email_Processor_Framework
 
                         EmailMsg.IsDraft = true;
 
-                        graphClient
+                        await graphClient
                             .Users[user.Id]
                             .MailFolders["Inbox"]
                             .Messages[$"{EmailMsg.Id}"]
@@ -1732,12 +1732,12 @@ namespace Email_Processor_Framework
                 //if (x.IsRead == false)
                 //if ((x.Subject != null) && (!x.Subject.Contains(MSG_NOT_SAVED)))
                 //{
-                ProcessStudentAvailabilityMessageAsync(x, user);
+                await ProcessStudentAvailabilityMessageAsync(x, user);
                 //}
             }
         }
 
-        static private void ProcessStudentAvailabilityMessageAsync(Microsoft.Graph.Models.Message EmailMsg, User user)
+        static private async Task ProcessStudentAvailabilityMessageAsync(Microsoft.Graph.Models.Message EmailMsg, User user)
         {
 
             //return;
@@ -1864,7 +1864,7 @@ namespace Email_Processor_Framework
 
             EmailMsg.IsDraft = true;
 
-            graphClient
+            await graphClient
                 .Users[user.Id]
                 .MailFolders["Inbox"]
                 .Messages[$"{EmailMsg.Id}"]
@@ -1993,10 +1993,10 @@ namespace Email_Processor_Framework
 
                                         LogMessage("Attachment saved.", message, TraceEventType.Information);
                                         LogMessage("Updating db...", message, TraceEventType.Information);
-                                        UpdateEditableTiemsheetAccess(message, fePDFFileName, feFileName);
-                                        UpdateEditableTiemsheetSQLServer(message, fePDFFileName, feFileName);
+                                        await UpdateEditableTiemsheetAccess(message, user, fePDFFileName, feFileName);
+                                        await UpdateEditableTiemsheetSQLServer(message, user, fePDFFileName, feFileName);
 
-                                        SetMessageSubject(message, user, MSG_SAVED);
+                                        await SetMessageSubject(message, user, MSG_SAVED);
                                     }
                                     else if (System.IO.File.Exists(REFERENCES_PDF_PATH + fePDFFileName))
                                     {
@@ -2008,17 +2008,17 @@ namespace Email_Processor_Framework
 
                                         LogMessage("Reference attachment saved.", message, TraceEventType.Information);
                                         LogMessage("Updating Reference db.", message, TraceEventType.Information);
-                                        UpdateReferencesAccess(message, fePDFFileName, feFileName);
-                                        UpdateReferencesSQLServer(message, fePDFFileName, feFileName);
+                                        await UpdateReferencesAccess(message, user, fePDFFileName, feFileName);
+                                        await UpdateReferencesSQLServer(message, user, fePDFFileName, feFileName);
 
-                                        SetMessageSubject(message, user, MSG_SAVED);
+                                        await SetMessageSubject(message, user, MSG_SAVED);
                                     }
                                     else
                                     {
                                         LogMessage("Data file " + feFileName + " not saved, no matching pdf file '" + TIMESHEETS_PDF_PATH + fePDFFileName + " found.", message, TraceEventType.Error);
                                         LogError("Data file " + feFileName + " not saved, no matching pdf file '" + TIMESHEETS_PDF_PATH + fePDFFileName + " found.", message, TraceEventType.Error);
 
-                                        SetMessageSubject(message, user, MSG_NOT_SAVED);
+                                        await SetMessageSubject(message, user, MSG_NOT_SAVED);
                                     }
                                 }
                             }
@@ -2039,7 +2039,7 @@ namespace Email_Processor_Framework
             }
             else
             {
-                SetMessageSubject(message, user, MSG_NOT_SAVED);
+                await SetMessageSubject(message, user, MSG_NOT_SAVED);
 
                 return;
             }
@@ -2048,7 +2048,7 @@ namespace Email_Processor_Framework
             {
                 LogMessage("No attachment in the message valid for processing, skipping message.", message, TraceEventType.Information);
 
-                SetMessageSubject(message, user, MSG_NOT_SAVED);
+                await SetMessageSubject(message, user, MSG_NOT_SAVED);
 
                 return;
             }
@@ -2068,7 +2068,7 @@ namespace Email_Processor_Framework
             System.IO.File.WriteAllBytes(p, fileAttachment.ContentBytes);
         }
 
-        static private void SetMessageSubject(Microsoft.Graph.Models.Message message, User user, string v)
+        static private async Task SetMessageSubject(Microsoft.Graph.Models.Message message, User user, string v)
         {
             var subject = message.Subject.Replace(MSG_SAVED, "").Replace(MSG_NOT_SAVED, "").Replace(v, "");
 
@@ -2076,7 +2076,7 @@ namespace Email_Processor_Framework
 
             message.IsDraft = true;
 
-            graphClient
+            await graphClient
                 .Users[user.Id]
                 .MailFolders["Inbox"]
                 .Messages[$"{message.Id}"]
