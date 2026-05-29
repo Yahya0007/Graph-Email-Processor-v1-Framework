@@ -1400,7 +1400,7 @@ namespace Email_Processor_Framework
                         }
                     }
 
-                    if ((y.Contains("Event Ref:")) && ((EventID == -1) || (EventID == 0) || (EventID == null)))
+                    if ((y.Contains("Event Ref:")) && ((EventID == -1) || (EventID == 0)))
                     {
                         string[] lines = y.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
 
