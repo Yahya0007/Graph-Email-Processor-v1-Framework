@@ -2544,7 +2544,7 @@ namespace Email_Processor_Framework
         {
             string networkDrive = @"F:\";
             //string backupFolder = @"F:\Events Data\DB_Backups";
-            string backupFolder = @"Z:\OneDrive - High Society\DB_Backups - MS Access";
+            string backupFolder = @"H:\OneDrive - High Society\DB_Backups - MS Access";
             //string backupFolder = @"H:\DB_Backups";
 
             long requiredSpace = (long)(5.0 * 1024.0 * 1024.0 * 1024.0); // 5GB in bytes
