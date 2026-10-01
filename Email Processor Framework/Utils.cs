@@ -14,7 +14,8 @@ namespace Email_Processor
     {
         // testing 567
         public const string TEST_TOKEN = "[TEST]";
-        public const string SYSTEM_LOG_PATH = @"\\data-server\Logs\Graph Email Processor v1 Logs\";
+        //public const string SYSTEM_LOG_PATH = @"\\data-server\Logs\Graph Email Processor v1 Logs\";
+        public const string SYSTEM_LOG_PATH = @"C:\Logs\Graph Email Processor v1 Logs\";
         public const string SYSTEM_LOG_ACCESS = "GraphEmailProcessor-Access.log";
         public const string SYSTEM_LOG_SQLSERVER = "GraphEmailProcessor-SQLServer.log";
         public const string SYSTEM_LOG_ACCESS_NOTFOUND = "GraphEmailProcessor-Access-NotFound.log";
@@ -31,7 +32,7 @@ namespace Email_Processor
         public const string MSG_AUTOBOOKED = "AUTO BOOKED: ";
         //public const string RemoteSQLServerConnSt = "Data Source=91.232.125.193;Initial Catalog=HS_Staff_Portal;Persist Security Info=True;User ID=HS_Staff_Portal;Password=yMYSyZKY#9";
         public const string RemoteSQLServerConnSt = "Data Source=91.232.125.193;Initial Catalog=EMS_2018_HS;Persist Security Info=True;User ID=EMS_2018_HS;Password=P@ssword01;TrustServerCertificate=True;";
-        public const string LocalSQLServerConnSt = @"Data Source=DB-SERVER;Initial Catalog=EMS_2018_HS;Persist Security Info=True;User ID=EMS_2018_HS;Password=P@ssword01;TrustServerCertificate=True;";
+        public const string LocalSQLServerConnSt = @"Data Source=DATA-HOST;Initial Catalog=EMS_2018_HS;Persist Security Info=True;User ID=EMS_2018_HS;Password=P@ssword01;TrustServerCertificate=True;";
         public const string LocalAccessConnSt = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=""\\hsserver\Events Data\Events Data\Events Data.mdb"";";
 
         public enum UnsubscribeStatus

@@ -2550,7 +2550,7 @@ namespace Email_Processor_Framework
             long requiredSpace = (long)(5.0 * 1024.0 * 1024.0 * 1024.0); // 5GB in bytes
 
             //remove when done
-            //return;
+            return;
 
 
             //zip all mdb files
@@ -2641,7 +2641,13 @@ namespace Email_Processor_Framework
 
         static bool CreateZipFile(string sourceFile, string zipFilePath)
         {
-            using (FileStream zipToOpen = new FileStream(zipFilePath, FileMode.Create))
+            if (!System.IO.File.Exists(sourceFile))
+            {
+                Console.WriteLine($"Source file missing, skipping: {sourceFile}");
+                return false;
+            }
+
+            using (System.IO.FileStream zipToOpen = new System.IO.FileStream(zipFilePath, System.IO.FileMode.Create))
             {
                 using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
                 {
@@ -2649,8 +2655,9 @@ namespace Email_Processor_Framework
                     {
                         archive.CreateEntryFromFile(sourceFile, Path.GetFileName(sourceFile));
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Console.WriteLine($"Failed to create zip for {sourceFile}: {ex.Message}");
                         return false;
                     }
 
